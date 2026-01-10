@@ -19,17 +19,22 @@ export default function JoinEventPage() {
         setLoading(true);
         setError(null);
         
-        // Check if the event exists
-        const event = await api.events.getById(id as string);
+        // First, try to access the event to verify it exists and user has permission
+        // If the user doesn't have permission yet, the addMember call will grant it
+        try {
+          const event = await api.events.getById(id as string);
+        } catch (eventError: any) {
+          // If we can't get the event, it might be because the user isn't a member yet
+          // This is expected when joining an event, so we continue
+          console.log('Event not accessible yet, will add user as member');
+        }
         
         // Add the user as a member of the event
         try {
           await api.events.addMember(id as string, user.id);
         } catch (addMemberError: any) {
-          // If user is already a member, that's fine - just continue
-          if (addMemberError.code !== '23505' && !addMemberError.message.includes('duplicate')) {
-            throw addMemberError;
-          }
+          console.error('Error adding member:', addMemberError);
+          throw new Error('Failed to join the event. The event may not exist or you may not have permission to join it.');
         }
         
         setSuccess(true);
