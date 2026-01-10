@@ -23,7 +23,14 @@ export default function JoinEventPage() {
         const event = await api.events.getById(id as string);
         
         // Add the user as a member of the event
-        await api.events.addMember(id as string, user.id);
+        try {
+          await api.events.addMember(id as string, user.id);
+        } catch (addMemberError: any) {
+          // If user is already a member, that's fine - just continue
+          if (addMemberError.code !== '23505' && !addMemberError.message.includes('duplicate')) {
+            throw addMemberError;
+          }
+        }
         
         setSuccess(true);
         

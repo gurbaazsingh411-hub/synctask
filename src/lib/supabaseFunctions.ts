@@ -180,6 +180,19 @@ export const eventFunctions = {
 
   // Add a member to an event
   addMemberToEvent: async (eventId: string, userId: string) => {
+    // Check if the user is already a member to avoid duplicate key violations
+    const { data: existingMember, error: checkError } = await supabase
+      .from('event_members')
+      .select('id')
+      .eq('event_id', eventId)
+      .eq('user_id', userId)
+      .single();
+      
+    if (!checkError && existingMember) {
+      // User is already a member, return the existing record
+      return existingMember as EventMember;
+    }
+    
     const { data, error } = await supabase
       .from('event_members')
       .insert([{ 
@@ -189,7 +202,20 @@ export const eventFunctions = {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      // If the error is due to duplicate key violation, return existing record
+      if (error.code === '23505') { // Unique violation error code
+        const { data: existingRecord } = await supabase
+          .from('event_members')
+          .select('*')
+          .eq('event_id', eventId)
+          .eq('user_id', userId)
+          .single();
+        
+        return existingRecord as EventMember;
+      }
+      throw error;
+    }
     return data as EventMember;
   }
 };
