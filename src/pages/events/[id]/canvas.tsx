@@ -653,9 +653,9 @@ export default function CanvasPage() {
                     {node.assignedTo && (
                       <div
                         className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-[8px] font-bold text-gray-300 border border-white/5"
-                        title={eventMembers.find(m => m.user_id === node.assignedTo)?.users?.email || 'Assigned'}
+                        title={presence[node.assignedTo]?.email || 'Assigned'}
                       >
-                        {eventMembers.find(m => m.user_id === node.assignedTo)?.users?.email?.charAt(0).toUpperCase() || '?'}
+                        {(presence[node.assignedTo]?.email || '?').charAt(0).toUpperCase()}
                       </div>
                     )}
                   </div>
@@ -743,7 +743,7 @@ export default function CanvasPage() {
                     <option value="">Unassigned</option>
                     {eventMembers.map((m: any) => (
                       <option key={m.user_id} value={m.user_id}>
-                        {m.users?.email?.split('@')[0] || 'Unknown'}
+                        {presence[m.user_id]?.email?.split('@')[0] || m.user_id.slice(0, 8)}
                       </option>
                     ))}
                   </select>

@@ -226,8 +226,7 @@ export const eventFunctions = {
       .select(`
         id,
         user_id,
-        role,
-        users:user_id (id, email)
+        role
       `)
       .eq('event_id', eventId);
 
