@@ -550,10 +550,12 @@ export default function CanvasPage() {
                   left: node.x,
                   top: node.y,
                   width: '220px',
-                  cursor: draggingNode === node.id ? 'grabbing' : 'grab'
+                  cursor: draggingNode === node.id ? 'grabbing' : 'grab',
+                  zIndex: 10,
+                  opacity: 1,
+                  display: 'block'
                 }}
                 onMouseDown={(e) => handleNodeMouseDown(node.id, e)}
-                layout
               >
                 <div className="flex justify-between items-center gap-2 mb-2">
                   <div className="flex items-center gap-2 overflow-hidden">
