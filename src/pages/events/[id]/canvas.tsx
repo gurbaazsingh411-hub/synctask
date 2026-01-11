@@ -506,10 +506,8 @@ export default function CanvasPage() {
             {canvasData?.nodes.map(node => {
               if (!node.parentId) return null;
               const parent = canvasData.nodes.find(n => n.id === node.parentId);
+              // Draw connection if both nodes exist (removed visibility check based on parent expanded state)
               if (!parent) return null;
-
-              // Only draw if parent is expanded
-              if (!parent.expanded && parent.id !== node.parentId) return null;
 
               const strokeColor = node.status === 'done' ? 'rgba(34, 197, 94, 0.4)' :
                 node.status === 'in_progress' ? 'rgba(245, 158, 11, 0.4)' :
@@ -539,19 +537,7 @@ export default function CanvasPage() {
           }}
         >
           {canvasData?.nodes.map((node) => {
-            // Logic to hide children if parent is collapsed
-            let isHidden = false;
-            let current = node;
-            while (current.parentId) {
-              const p = canvasData.nodes.find(n => n.id === current.parentId);
-              if (p && !p.expanded) {
-                isHidden = true;
-                break;
-              }
-              if (!p) break;
-              current = p;
-            }
-            if (isHidden) return null;
+            // Nodes are no longer hidden based on parent's expanded state
 
             return (
               <motion.div
