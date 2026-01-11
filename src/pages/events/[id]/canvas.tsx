@@ -511,11 +511,15 @@ export default function CanvasPage() {
               // Only draw if parent is expanded
               if (!parent.expanded && parent.id !== node.parentId) return null;
 
+              const strokeColor = node.status === 'done' ? 'rgba(34, 197, 94, 0.4)' :
+                node.status === 'in_progress' ? 'rgba(245, 158, 11, 0.4)' :
+                  'rgba(99, 102, 241, 0.2)';
+
               return (
                 <motion.path
                   key={`edge-${node.id}`}
                   d={getConnectorPath({ x: parent.x + 180, y: parent.y + 24 }, { x: node.x, y: node.y + 24 })}
-                  stroke="rgba(99, 102, 241, 0.2)"
+                  stroke={strokeColor}
                   strokeWidth="2"
                   fill="none"
                   initial={{ pathLength: 0, opacity: 0 }}
