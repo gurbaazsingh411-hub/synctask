@@ -88,31 +88,31 @@ export const eventFunctions = {
     // Start a transaction to ensure both the event and member record are created
     const { data, error } = await supabase
       .from('events')
-      .insert([{ 
-        ...eventData, 
-        owner_id: user.id 
+      .insert([{
+        ...eventData,
+        owner_id: user.id
       }])
       .select()
       .single();
 
     if (error) throw error;
-    
+
     // Add the user as a member of the event to ensure they can access it
     const event = data as Event;
-    
+
     const { error: memberError } = await supabase
       .from('event_members')
-      .insert([{ 
-        event_id: event.id, 
-        user_id: user.id 
+      .insert([{
+        event_id: event.id,
+        user_id: user.id
       }]);
-    
+
     if (memberError) {
       console.error('Error adding user as event member:', memberError);
       // Don't throw the error, as the event was created successfully
       // The user can still access the event as the owner
     }
-    
+
     return event;
   },
 
@@ -120,19 +120,19 @@ export const eventFunctions = {
   getUserEvents: async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('User not authenticated');
-    
+
     // With corrected RLS policies, a simple select from events will
     // automatically return all events the user owns OR is a member of.
     const { data, error } = await supabase
       .from('events')
       .select('id, name, description, owner_id, created_at, updated_at')
       .order('created_at', { ascending: false });
-    
+
     if (error) {
       console.error('Error in getUserEvents:', error);
       throw error;
     }
-    
+
     return data as Event[];
   },
 
@@ -187,17 +187,17 @@ export const eventFunctions = {
       .eq('event_id', eventId)
       .eq('user_id', userId)
       .single();
-      
+
     if (!checkError && existingMember) {
       // User is already a member, return the existing record
       return existingMember as EventMember;
     }
-    
+
     const { data, error } = await supabase
       .from('event_members')
-      .insert([{ 
-        event_id: eventId, 
-        user_id: userId 
+      .insert([{
+        event_id: eventId,
+        user_id: userId
       }])
       .select()
       .single();
@@ -211,7 +211,7 @@ export const eventFunctions = {
           .eq('event_id', eventId)
           .eq('user_id', userId)
           .single();
-        
+
         return existingRecord as EventMember;
       }
       throw error;
@@ -228,16 +228,11 @@ export const canvasFunctions = {
       .from('canvas')
       .select('*')
       .eq('event_id', eventId)
-      .single();
+      .order('created_at', { ascending: false })
+      .limit(1);
 
-    if (error) {
-      // If no canvas exists, return null instead of throwing
-      if (error.code === 'PGRST116') { // Result contains 0 rows
-        return null;
-      }
-      throw error;
-    }
-    return data;
+    if (error) throw error;
+    return data && data.length > 0 ? data[0] : null;
   },
 
   // Create a new canvas for an event
@@ -247,7 +242,7 @@ export const canvasFunctions = {
 
     const { data, error } = await supabase
       .from('canvas')
-      .insert([{ 
+      .insert([{
         event_id: eventId,
         nodes: { nodes: initialNodes }
       }])
@@ -262,7 +257,7 @@ export const canvasFunctions = {
   updateCanvas: async (canvasId: string, nodes: any[]) => {
     const { data, error } = await supabase
       .from('canvas')
-      .update({ 
+      .update({
         nodes: { nodes },
         updated_at: new Date().toISOString()
       })
@@ -280,11 +275,12 @@ export const canvasFunctions = {
       .from('canvas')
       .select('id')
       .eq('event_id', eventId)
-      .single();
+      .order('created_at', { ascending: false })
+      .limit(1);
 
-    if (canvas.data) {
+    if (canvas.data && canvas.data.length > 0) {
       // Update existing canvas
-      return await canvasFunctions.updateCanvas(canvas.data.id, nodes);
+      return await canvasFunctions.updateCanvas(canvas.data[0].id, nodes);
     } else {
       // Create new canvas
       return await canvasFunctions.createCanvas(eventId, nodes);
@@ -301,9 +297,9 @@ export const todoListFunctions = {
 
     const { data, error } = await supabase
       .from('todo_lists')
-      .insert([{ 
-        ...listData, 
-        created_by: user.id 
+      .insert([{
+        ...listData,
+        created_by: user.id
       }])
       .select()
       .single();
@@ -356,9 +352,9 @@ export const todoStepFunctions = {
 
     const { data, error } = await supabase
       .from('todo_steps')
-      .insert([{ 
-        ...stepData, 
-        created_by: user.id 
+      .insert([{
+        ...stepData,
+        created_by: user.id
       }])
       .select()
       .single();
@@ -412,9 +408,9 @@ export const taskFunctions = {
 
     const { data, error } = await supabase
       .from('tasks')
-      .insert([{ 
-        ...taskData, 
-        created_by: user.id 
+      .insert([{
+        ...taskData,
+        created_by: user.id
       }])
       .select()
       .single();
@@ -481,9 +477,9 @@ export const commentFunctions = {
 
     const { data, error } = await supabase
       .from('comments')
-      .insert([{ 
-        ...commentData, 
-        author_id: user.id 
+      .insert([{
+        ...commentData,
+        author_id: user.id
       }])
       .select()
       .single();
@@ -577,10 +573,10 @@ export const commentFunctions = {
 export const attachmentFunctions = {
   // Upload a file to storage and create attachment record
   uploadAttachment: async (
-    file: File, 
-    eventId: string, 
-    listId?: string, 
-    stepId?: string, 
+    file: File,
+    eventId: string,
+    listId?: string,
+    stepId?: string,
     taskId?: string
   ) => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -588,7 +584,7 @@ export const attachmentFunctions = {
 
     // Generate unique file name
     const fileName = `${user.id}/${Date.now()}-${file.name}`;
-    
+
     // Upload to Supabase storage
     const { data: uploadData, error: uploadError } = await supabase
       .storage
@@ -702,7 +698,7 @@ export const attachmentFunctions = {
       .storage
       .from('attachments')
       .getPublicUrl(filePath);
-    
+
     return data?.publicUrl;
   }
 };
