@@ -49,6 +49,7 @@ export default function CanvasPage() {
   const [eventName, setEventName] = useState<string>('');
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const [contextMenu, setContextMenu] = useState<{ x: number, y: number, visible: boolean }>({ x: 0, y: 0, visible: false });
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -222,11 +223,47 @@ export default function CanvasPage() {
   };
 
   const handleCanvasMouseDown = (e: React.MouseEvent) => {
+    setContextMenu({ ...contextMenu, visible: false });
     if (e.button === 0) { // Left click
       setSelectedNodeId(null);
       setIsPanning(true);
       setPanStart({ x: e.clientX - offset.x, y: e.clientY - offset.y });
     }
+  };
+
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      visible: true
+    });
+  };
+
+  const handleAddIndependentNode = async () => {
+    if (!canvasData) return;
+
+    const rect = canvasRef.current?.getBoundingClientRect();
+    const mouseX = contextMenu.x - (rect?.left || 0);
+    const mouseY = contextMenu.y - (rect?.top || 0);
+
+    const newNode: CanvasNode = {
+      id: `node_ind_${Date.now()}`,
+      title: 'New Note',
+      description: '',
+      x: (mouseX - offset.x) / scale,
+      y: (mouseY - offset.y) / scale,
+      parentId: null,
+      expanded: true,
+      status: 'not_started',
+      checklist: []
+    };
+
+    const updatedNodes = [...canvasData.nodes, newNode];
+    setCanvasData({ ...canvasData, nodes: updatedNodes });
+    await api.canvas.updateByEvent(canvasData.eventId, updatedNodes);
+    setSelectedNodeId(newNode.id);
+    setContextMenu({ ...contextMenu, visible: false });
   };
 
   // Throttle cursor broadcast
@@ -428,7 +465,7 @@ export default function CanvasPage() {
         onMouseDown={handleCanvasMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
-        onContextMenu={(e) => e.preventDefault()}
+        onContextMenu={handleContextMenu}
       >
         {/* Grid Background */}
         <div
@@ -725,6 +762,31 @@ export default function CanvasPage() {
         onZoomOut={() => setScale(s => Math.max(s - 0.1, 0.2))}
         onCenter={handleCenter}
       />
+
+      {/* Context Menu */}
+      <AnimatePresence>
+        {contextMenu.visible && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="fixed z-[100] bg-[#1a1a1a]/90 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl py-1 min-w-[160px] overflow-hidden"
+            style={{ left: contextMenu.x, top: contextMenu.y }}
+          >
+            <button
+              onClick={handleAddIndependentNode}
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 hover:text-white transition-colors"
+            >
+              <div className="w-5 h-5 flex items-center justify-center bg-indigo-500/10 text-indigo-400 rounded-md">
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+                </svg>
+              </div>
+              New Node
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
