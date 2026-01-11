@@ -45,6 +45,12 @@ export const api = {
     getByTask: supabaseFunctions.attachments.getAttachmentsForTask,
     delete: supabaseFunctions.attachments.deleteAttachment,
     getUrl: supabaseFunctions.attachments.getAttachmentUrl,
+  },
+  canvas: {
+    getByEvent: supabaseFunctions.canvas.getCanvasByEvent,
+    create: supabaseFunctions.canvas.createCanvas,
+    update: supabaseFunctions.canvas.updateCanvas,
+    updateByEvent: supabaseFunctions.canvas.updateCanvasByEvent,
   }
 };
 

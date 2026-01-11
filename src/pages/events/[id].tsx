@@ -171,7 +171,13 @@ export default function EventDetailPage() {
                     <span>Created {event.createdAt}</span>
                   </div>
                 </div>
-                <div className="mt-4 md:mt-0">
+                <div className="mt-4 md:mt-0 flex space-x-4">
+                  <button 
+                    onClick={() => router.push(`/events/${id}/canvas`)}
+                    className="bg-purple-600 hover:bg-purple-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
+                  >
+                    Open Canvas
+                  </button>
                   <button 
                     onClick={handleInviteMembers}
                     className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"

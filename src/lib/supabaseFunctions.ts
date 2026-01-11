@@ -220,6 +220,78 @@ export const eventFunctions = {
   }
 };
 
+// Canvas Functions
+export const canvasFunctions = {
+  // Get canvas for an event
+  getCanvasByEvent: async (eventId: string) => {
+    const { data, error } = await supabase
+      .from('canvas')
+      .select('*')
+      .eq('event_id', eventId)
+      .single();
+
+    if (error) {
+      // If no canvas exists, return null instead of throwing
+      if (error.code === 'PGRST116') { // Result contains 0 rows
+        return null;
+      }
+      throw error;
+    }
+    return data;
+  },
+
+  // Create a new canvas for an event
+  createCanvas: async (eventId: string, initialNodes: any[]) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
+
+    const { data, error } = await supabase
+      .from('canvas')
+      .insert([{ 
+        event_id: eventId,
+        nodes: { nodes: initialNodes }
+      }])
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  // Update canvas nodes
+  updateCanvas: async (canvasId: string, nodes: any[]) => {
+    const { data, error } = await supabase
+      .from('canvas')
+      .update({ 
+        nodes: { nodes },
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', canvasId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  // Update canvas by event ID
+  updateCanvasByEvent: async (eventId: string, nodes: any[]) => {
+    const canvas = await supabase
+      .from('canvas')
+      .select('id')
+      .eq('event_id', eventId)
+      .single();
+
+    if (canvas.data) {
+      // Update existing canvas
+      return await canvasFunctions.updateCanvas(canvas.data.id, nodes);
+    } else {
+      // Create new canvas
+      return await canvasFunctions.createCanvas(eventId, nodes);
+    }
+  }
+};
+
 // To-Do Lists Functions
 export const todoListFunctions = {
   // Create a new to-do list
@@ -642,5 +714,6 @@ export const supabaseFunctions = {
   todoSteps: todoStepFunctions,
   tasks: taskFunctions,
   comments: commentFunctions,
-  attachments: attachmentFunctions
+  attachments: attachmentFunctions,
+  canvas: canvasFunctions
 };
