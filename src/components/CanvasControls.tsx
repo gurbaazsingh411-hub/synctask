@@ -6,9 +6,11 @@ interface CanvasControlsProps {
     onZoomIn: () => void;
     onZoomOut: () => void;
     onCenter: () => void;
+    isMyViewActive: boolean;
+    onToggleMyView: () => void;
 }
 
-export const CanvasControls: React.FC<CanvasControlsProps> = ({ scale, onZoomIn, onZoomOut, onCenter }) => {
+export const CanvasControls: React.FC<CanvasControlsProps> = ({ scale, onZoomIn, onZoomOut, onCenter, isMyViewActive, onToggleMyView }) => {
     return (
         <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -38,6 +40,18 @@ export const CanvasControls: React.FC<CanvasControlsProps> = ({ scale, onZoomIn,
                     </svg>
                 </button>
             </div>
+            <button
+                onClick={onToggleMyView}
+                className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-all ${isMyViewActive
+                        ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20'
+                        : 'hover:bg-gray-800 text-gray-400 hover:text-white'
+                    }`}
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                Focus on Me
+            </button>
             <button
                 onClick={onCenter}
                 className="flex items-center gap-2 px-3 py-2 hover:bg-gray-800 rounded-xl text-gray-400 hover:text-white transition-colors text-xs font-medium"

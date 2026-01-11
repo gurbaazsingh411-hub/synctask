@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import { useSupabase } from '@/contexts/SupabaseContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -16,6 +16,8 @@ interface CanvasNode {
   expanded: boolean;
   status: 'not_started' | 'in_progress' | 'done';
   checklist: { id: string; title: string; completed: boolean }[];
+  assignedTo?: string;
+  dependencies?: string[];
 }
 
 interface CanvasData {
@@ -50,12 +52,37 @@ export default function CanvasPage() {
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, visible: boolean }>({ x: 0, y: 0, visible: false });
+  const [eventMembers, setEventMembers] = useState<any[]>([]);
+  const [isMyViewActive, setIsMyViewActive] = useState(false);
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const channelRef = useRef<any>(null);
 
   const selectedNode = canvasData?.nodes.find(n => n.id === selectedNodeId) || null;
+
+  // Calculate Active Set for "My View"
+  const activeNodeIds = useMemo(() => {
+    if (!isMyViewActive || !canvasData || !user) return null;
+
+    const myNodes = canvasData.nodes.filter(n => n.assignedTo === user.id);
+    const myNodeIds = new Set(myNodes.map(n => n.id));
+    const active = new Set(myNodeIds);
+
+    myNodes.forEach(node => {
+      // Upstream: Things I depend on
+      node.dependencies?.forEach(depId => active.add(depId));
+    });
+
+    // Downstream: Things depending on me
+    canvasData.nodes.forEach(node => {
+      if (node.dependencies?.some(depId => myNodeIds.has(depId))) {
+        active.add(node.id);
+      }
+    });
+
+    return active;
+  }, [isMyViewActive, canvasData, user]);
 
   // Initialize canvas data and event details
   useEffect(() => {
@@ -70,6 +97,9 @@ export default function CanvasPage() {
         if (event) setEventName(event.name);
 
         // Try to get existing canvas data from Supabase
+        const members = await api.events.getMembers(id as string);
+        if (members) setEventMembers(members);
+
         let existingCanvas = await api.canvas.getByEvent(id as string);
 
         if (!existingCanvas) {
@@ -353,6 +383,19 @@ export default function CanvasPage() {
 
   const handleUpdateNode = async (updatedNode: CanvasNode) => {
     if (!canvasData) return;
+
+    // Enforcement Logic: Task can only be 'in_progress' if all dependencies are 'done'
+    if (updatedNode.status === 'in_progress' && updatedNode.dependencies?.length) {
+      const unfinishedDeps = updatedNode.dependencies.map(id =>
+        canvasData.nodes.find(n => n.id === id)
+      ).filter(n => n && n.status !== 'done');
+
+      if (unfinishedDeps.length > 0) {
+        alert(`Cannot start: This task depends on unfinished tasks: ${unfinishedDeps.map(n => n?.title).join(', ')}`);
+        return;
+      }
+    }
+
     const updatedNodes = canvasData.nodes.map(n => n.id === updatedNode.id ? updatedNode : n);
     setCanvasData({ ...canvasData, nodes: updatedNodes });
     await api.canvas.updateByEvent(canvasData.eventId, updatedNodes);
@@ -525,6 +568,29 @@ export default function CanvasPage() {
                 />
               );
             })}
+
+            {/* Dependency Connections */}
+            {canvasData?.nodes.map(node => {
+              if (!node.dependencies?.length) return null;
+
+              return node.dependencies.map(depId => {
+                const targetNode = canvasData.nodes.find(n => n.id === depId);
+                if (!targetNode) return null;
+
+                return (
+                  <motion.path
+                    key={`dep-${node.id}-${depId}`}
+                    d={getConnectorPath({ x: targetNode.x + 180, y: targetNode.y + 24 }, { x: node.x, y: node.y + 24 })}
+                    stroke="#f59e0b"
+                    strokeWidth="1.5"
+                    strokeDasharray="5,5"
+                    fill="none"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 0.4 }}
+                  />
+                );
+              });
+            })}
           </g>
         </svg>
 
@@ -552,7 +618,7 @@ export default function CanvasPage() {
                   width: '220px',
                   cursor: draggingNode === node.id ? 'grabbing' : 'grab',
                   zIndex: 10,
-                  opacity: 1,
+                  opacity: activeNodeIds && !activeNodeIds.has(node.id) ? 0.2 : 1,
                   display: 'block'
                 }}
                 onMouseDown={(e) => handleNodeMouseDown(node.id, e)}
@@ -563,6 +629,14 @@ export default function CanvasPage() {
                       node.status === 'in_progress' ? 'bg-amber-500' : 'bg-gray-500'
                       }`} />
                     <h3 className="text-sm font-semibold truncate text-white/90">{node.title}</h3>
+                    {node.assignedTo && (
+                      <div
+                        className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-[8px] font-bold text-gray-300 border border-white/5"
+                        title={eventMembers.find(m => m.user_id === node.assignedTo)?.users?.email || 'Assigned'}
+                      >
+                        {eventMembers.find(m => m.user_id === node.assignedTo)?.users?.email?.charAt(0).toUpperCase() || '?'}
+                      </div>
+                    )}
                   </div>
                   <button
                     onClick={(e) => {
@@ -639,6 +713,21 @@ export default function CanvasPage() {
               {/* Title Section */}
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Assignee</label>
+                  <select
+                    value={selectedNode.assignedTo || ''}
+                    onChange={(e) => handleUpdateNode({ ...selectedNode, assignedTo: e.target.value || undefined })}
+                    className="bg-white/5 text-xs text-gray-300 px-3 py-2 rounded-xl border border-white/5 outline-none focus:border-indigo-500/50 transition-all"
+                  >
+                    <option value="">Unassigned</option>
+                    {eventMembers.map((m: any) => (
+                      <option key={m.user_id} value={m.user_id}>
+                        {m.users?.email?.split('@')[0] || 'Unknown'}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Title</label>
                   <div className="flex items-center gap-1">
                     {['not_started', 'in_progress', 'done'].map(s => (
@@ -675,6 +764,49 @@ export default function CanvasPage() {
                   className="w-full bg-white/5 text-gray-300 px-4 py-3 rounded-2xl border border-white/5 focus:border-indigo-500/50 outline-none transition-all min-h-[120px] text-sm leading-relaxed"
                   placeholder="Add details about this task..."
                 />
+              </div>
+
+              {/* Dependencies Section */}
+              <div className="space-y-3">
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Blocked By (Dependencies)</label>
+                <div className="flex flex-wrap gap-2">
+                  {canvasData?.nodes
+                    .filter(n => n.id !== selectedNode.id && !selectedNode.dependencies?.includes(n.id))
+                    .slice(0, 5) // Show a few candidates or use a proper search in a real app
+                    .map(candidate => (
+                      <button
+                        key={candidate.id}
+                        onClick={() => {
+                          const deps = [...(selectedNode.dependencies || []), candidate.id];
+                          handleUpdateNode({ ...selectedNode, dependencies: deps });
+                        }}
+                        className="px-2 py-1 bg-white/5 hover:bg-white/10 text-[10px] text-gray-400 rounded-md border border-white/5 transition-colors"
+                      >
+                        + {candidate.title}
+                      </button>
+                    ))}
+                </div>
+                <div className="space-y-2 mt-2">
+                  {selectedNode.dependencies?.map(depId => {
+                    const depNode = canvasData?.nodes.find(n => n.id === depId);
+                    return depNode ? (
+                      <div key={depId} className="flex justify-between items-center bg-amber-500/5 border border-amber-500/10 p-2 rounded-xl">
+                        <span className="text-xs text-amber-200/70 truncate">{depNode.title}</span>
+                        <button
+                          onClick={() => {
+                            const deps = selectedNode.dependencies?.filter(id => id !== depId);
+                            handleUpdateNode({ ...selectedNode, dependencies: deps });
+                          }}
+                          className="text-amber-500/50 hover:text-amber-500"
+                        >
+                          <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                          </svg>
+                        </button>
+                      </div>
+                    ) : null;
+                  })}
+                </div>
               </div>
 
               {/* Checklist Section */}
@@ -753,6 +885,8 @@ export default function CanvasPage() {
         onZoomIn={() => setScale(s => Math.min(s + 0.1, 2))}
         onZoomOut={() => setScale(s => Math.max(s - 0.1, 0.2))}
         onCenter={handleCenter}
+        isMyViewActive={isMyViewActive}
+        onToggleMyView={() => setIsMyViewActive(!isMyViewActive)}
       />
 
       {/* Context Menu */}

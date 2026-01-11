@@ -217,6 +217,22 @@ export const eventFunctions = {
       throw error;
     }
     return data as EventMember;
+  },
+
+  // Get all members of an event with user details
+  getEventMembers: async (eventId: string) => {
+    const { data, error } = await supabase
+      .from('event_members')
+      .select(`
+        id,
+        user_id,
+        role,
+        users:user_id (id, email)
+      `)
+      .eq('event_id', eventId);
+
+    if (error) throw error;
+    return data;
   }
 };
 

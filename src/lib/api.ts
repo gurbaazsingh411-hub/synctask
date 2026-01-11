@@ -9,6 +9,7 @@ export const api = {
     update: supabaseFunctions.events.updateEvent,
     delete: supabaseFunctions.events.deleteEvent,
     addMember: supabaseFunctions.events.addMemberToEvent,
+    getMembers: supabaseFunctions.events.getEventMembers,
   },
   todoLists: {
     create: supabaseFunctions.todoLists.createTodoList,
