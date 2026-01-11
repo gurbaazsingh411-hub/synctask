@@ -15,7 +15,7 @@ interface CanvasNode {
   parentId: string | null;
   expanded: boolean;
   status: 'not_started' | 'in_progress' | 'done';
-  checklist: { id: string; title: string; completed: boolean }[];
+  checklist: { id: string; title: string; completed: boolean; role?: string }[];
   assignedTo?: string;
   dependencies?: string[];
 }
@@ -54,6 +54,7 @@ export default function CanvasPage() {
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, visible: boolean }>({ x: 0, y: 0, visible: false });
   const [eventMembers, setEventMembers] = useState<any[]>([]);
   const [isMyViewActive, setIsMyViewActive] = useState(false);
+  const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null);
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -83,6 +84,18 @@ export default function CanvasPage() {
 
     return active;
   }, [isMyViewActive, canvasData, user]);
+
+  // Calculate unique roles across all nodes
+  const availableRoles = useMemo(() => {
+    if (!canvasData) return [];
+    const roles = new Set<string>();
+    canvasData.nodes.forEach(node => {
+      node.checklist.forEach(item => {
+        if (item.role) roles.add(item.role.trim().toUpperCase());
+      });
+    });
+    return Array.from(roles).sort();
+  }, [canvasData]);
 
   // Initialize canvas data and event details
   useEffect(() => {
@@ -564,7 +577,13 @@ export default function CanvasPage() {
                   strokeWidth="2"
                   fill="none"
                   initial={{ pathLength: 0, opacity: 0 }}
-                  animate={{ pathLength: 1, opacity: 1 }}
+                  animate={{
+                    pathLength: 1,
+                    opacity: !selectedRoleId || (
+                      node.checklist.some(i => i.role?.toUpperCase() === selectedRoleId) ||
+                      parent.checklist.some(i => i.role?.toUpperCase() === selectedRoleId)
+                    ) ? 1 : 0.1
+                  }}
                 />
               );
             })}
@@ -586,7 +605,7 @@ export default function CanvasPage() {
                     strokeDasharray="5,5"
                     fill="none"
                     initial={{ opacity: 0 }}
-                    animate={{ opacity: 0.4 }}
+                    animate={{ opacity: (!selectedRoleId || (node.checklist.some(i => i.role?.toUpperCase() === selectedRoleId) && targetNode.checklist.some(i => i.role?.toUpperCase() === selectedRoleId))) ? 0.4 : 0.05 }}
                   />
                 );
               });
@@ -618,7 +637,9 @@ export default function CanvasPage() {
                   width: '220px',
                   cursor: draggingNode === node.id ? 'grabbing' : 'grab',
                   zIndex: 10,
-                  opacity: activeNodeIds && !activeNodeIds.has(node.id) ? 0.2 : 1,
+                  opacity: selectedRoleId
+                    ? (node.checklist.some(i => i.role?.toUpperCase() === selectedRoleId) ? 1 : 0.15)
+                    : (activeNodeIds && !activeNodeIds.has(node.id) ? 0.2 : 1),
                   display: 'block'
                 }}
                 onMouseDown={(e) => handleNodeMouseDown(node.id, e)}
@@ -815,7 +836,7 @@ export default function CanvasPage() {
                   <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Tasks</label>
                   <button
                     onClick={() => {
-                      const newItem = { id: `item_${Date.now()}`, title: 'New task', completed: false };
+                      const newItem = { id: `item_${Date.now()}`, title: 'New task', completed: false, role: '' };
                       handleUpdateNode({ ...selectedNode, checklist: [...selectedNode.checklist, newItem] });
                     }}
                     className="text-xs text-indigo-400 hover:text-indigo-300 font-bold"
@@ -837,16 +858,30 @@ export default function CanvasPage() {
                       >
                         {item.completed && <svg className="w-3 h-3 text-white" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
                       </button>
-                      <input
-                        type="text"
-                        value={item.title}
-                        onChange={(e) => {
-                          const newChecklist = [...selectedNode.checklist];
-                          newChecklist[idx].title = e.target.value;
-                          handleUpdateNode({ ...selectedNode, checklist: newChecklist });
-                        }}
-                        className={`bg-transparent flex-1 outline-none text-sm ${item.completed ? 'line-through text-gray-500' : 'text-gray-300'}`}
-                      />
+                      <div className="flex-1 flex items-center gap-2 overflow-hidden">
+                        <input
+                          type="text"
+                          value={item.title}
+                          onChange={(e) => {
+                            const newChecklist = [...selectedNode.checklist];
+                            newChecklist[idx].title = e.target.value;
+                            handleUpdateNode({ ...selectedNode, checklist: newChecklist });
+                          }}
+                          className={`flex-1 bg-transparent outline-none text-sm ${item.completed ? 'line-through text-gray-500' : 'text-gray-300'}`}
+                        />
+                        <span className="text-gray-700 select-none">-</span>
+                        <input
+                          type="text"
+                          value={item.role || ''}
+                          onChange={(e) => {
+                            const newChecklist = [...selectedNode.checklist];
+                            newChecklist[idx].role = e.target.value;
+                            handleUpdateNode({ ...selectedNode, checklist: newChecklist });
+                          }}
+                          className="w-20 bg-white/5 px-2 py-0.5 rounded text-[10px] text-indigo-400 placeholder:text-gray-700 outline-none border border-transparent focus:border-indigo-500/30 transition-all font-medium uppercase tracking-wider"
+                          placeholder="Role"
+                        />
+                      </div>
                       <button
                         onClick={() => {
                           const newChecklist = selectedNode.checklist.filter(i => i.id !== item.id);
@@ -888,6 +923,33 @@ export default function CanvasPage() {
         isMyViewActive={isMyViewActive}
         onToggleMyView={() => setIsMyViewActive(!isMyViewActive)}
       />
+
+      {/* Roles Sidebar */}
+      <div className="fixed right-6 top-24 z-50 flex flex-col gap-2">
+        {availableRoles.length > 0 && (
+          <div className="bg-[#1a1a1a]/80 backdrop-blur-xl border border-white/10 rounded-2xl p-4 shadow-2xl min-w-[120px]">
+            <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 px-2">Filter by Role</h3>
+            <div className="flex flex-col gap-1">
+              <button
+                onClick={() => setSelectedRoleId(null)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all text-left ${!selectedRoleId ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : 'text-gray-400 hover:text-white hover:bg-white/5 border border-transparent'}`}
+              >
+                All Roles
+              </button>
+              {availableRoles.map(role => (
+                <button
+                  key={role}
+                  onClick={() => setSelectedRoleId(selectedRoleId === role ? null : role)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all text-left flex justify-between items-center group ${selectedRoleId === role ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : 'text-gray-400 hover:text-white hover:bg-white/5 border border-transparent'}`}
+                >
+                  <span className="truncate">{role}</span>
+                  <div className={`w-1.5 h-1.5 rounded-full transition-all ${selectedRoleId === role ? 'bg-indigo-500 animate-pulse' : 'bg-gray-600 group-hover:bg-gray-400'}`} />
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Context Menu */}
       <AnimatePresence>
