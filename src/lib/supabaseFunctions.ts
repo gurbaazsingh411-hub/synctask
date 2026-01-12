@@ -251,7 +251,7 @@ export const canvasFunctions = {
   },
 
   // Create a new canvas for an event
-  createCanvas: async (eventId: string, initialNodes: any[]) => {
+  createCanvas: async (eventId: string, initialNodes: any[], roles: string[] = []) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('User not authenticated');
 
@@ -259,7 +259,7 @@ export const canvasFunctions = {
       .from('canvas')
       .insert([{
         event_id: eventId,
-        nodes: { nodes: initialNodes }
+        nodes: { nodes: initialNodes, roles }
       }])
       .select()
       .single();
@@ -269,11 +269,11 @@ export const canvasFunctions = {
   },
 
   // Update canvas nodes
-  updateCanvas: async (canvasId: string, nodes: any[]) => {
+  updateCanvas: async (canvasId: string, nodes: any[], roles: string[] = []) => {
     const { data, error } = await supabase
       .from('canvas')
       .update({
-        nodes: { nodes },
+        nodes: { nodes, roles },
         updated_at: new Date().toISOString()
       })
       .eq('id', canvasId)
@@ -285,7 +285,7 @@ export const canvasFunctions = {
   },
 
   // Update canvas by event ID
-  updateCanvasByEvent: async (eventId: string, nodes: any[]) => {
+  updateCanvasByEvent: async (eventId: string, nodes: any[], roles: string[] = []) => {
     const canvas = await supabase
       .from('canvas')
       .select('id')
@@ -295,10 +295,10 @@ export const canvasFunctions = {
 
     if (canvas.data && canvas.data.length > 0) {
       // Update existing canvas
-      return await canvasFunctions.updateCanvas(canvas.data[0].id, nodes);
+      return await canvasFunctions.updateCanvas(canvas.data[0].id, nodes, roles);
     } else {
       // Create new canvas
-      return await canvasFunctions.createCanvas(eventId, nodes);
+      return await canvasFunctions.createCanvas(eventId, nodes, roles);
     }
   }
 };

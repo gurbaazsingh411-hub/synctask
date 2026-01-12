@@ -24,6 +24,7 @@ interface CanvasData {
   id: string;
   eventId: string;
   nodes: CanvasNode[];
+  roles: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -55,6 +56,8 @@ export default function CanvasPage() {
   const [eventMembers, setEventMembers] = useState<any[]>([]);
   const [isMyViewActive, setIsMyViewActive] = useState(false);
   const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null);
+  const [isAddingRole, setIsAddingRole] = useState(false);
+  const [newRoleName, setNewRoleName] = useState('');
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -85,17 +88,33 @@ export default function CanvasPage() {
     return active;
   }, [isMyViewActive, canvasData, user]);
 
-  // Calculate unique roles across all nodes
+  // Calculate unique roles across all nodes + custom workspace roles
   const availableRoles = useMemo(() => {
-    if (!canvasData) return [];
-    const roles = new Set<string>();
-    canvasData.nodes.forEach(node => {
+    const roles = new Set<string>(canvasData?.roles || []);
+    canvasData?.nodes.forEach(node => {
       node.checklist.forEach(item => {
         if (item.role) roles.add(item.role.trim().toUpperCase());
       });
     });
     return Array.from(roles).sort();
   }, [canvasData]);
+
+  const handleAddRole = async () => {
+    if (!newRoleName.trim() || !canvasData) return;
+    const roleToAdd = newRoleName.trim().toUpperCase();
+    if (canvasData.roles.includes(roleToAdd)) {
+      setIsAddingRole(false);
+      setNewRoleName('');
+      return;
+    }
+
+    const updatedRoles = [...(canvasData.roles || []), roleToAdd];
+    const updatedCanvas = { ...canvasData, roles: updatedRoles };
+    setCanvasData(updatedCanvas);
+    setIsAddingRole(false);
+    setNewRoleName('');
+    await api.canvas.updateByEvent(canvasData.eventId, canvasData.nodes, updatedRoles);
+  };
 
   // Initialize canvas data and event details
   useEffect(() => {
@@ -137,6 +156,7 @@ export default function CanvasPage() {
           createdAt: existingCanvas.created_at,
           updatedAt: existingCanvas.updated_at,
           nodes: existingCanvas.nodes.nodes || [],
+          roles: existingCanvas.nodes.roles || [],
         };
 
         setCanvasData(formattedCanvas);
@@ -239,7 +259,7 @@ export default function CanvasPage() {
     saveTimeoutRef.current = setTimeout(async () => {
       if (!id) return;
       try {
-        await api.canvas.updateByEvent(id as string, nodes);
+        await api.canvas.updateByEvent(id as string, nodes, canvasData?.roles || []);
       } catch (err: any) {
         // Supabase returns 406 if the data is identical, which is fine.
         // Only log other errors.
@@ -304,7 +324,7 @@ export default function CanvasPage() {
 
     const updatedNodes = [...canvasData.nodes, newNode];
     setCanvasData({ ...canvasData, nodes: updatedNodes });
-    await api.canvas.updateByEvent(canvasData.eventId, updatedNodes);
+    await api.canvas.updateByEvent(canvasData.eventId, updatedNodes, canvasData.roles);
     setSelectedNodeId(newNode.id);
     setContextMenu({ ...contextMenu, visible: false });
   };
@@ -411,7 +431,7 @@ export default function CanvasPage() {
 
     const updatedNodes = canvasData.nodes.map(n => n.id === updatedNode.id ? updatedNode : n);
     setCanvasData({ ...canvasData, nodes: updatedNodes });
-    await api.canvas.updateByEvent(canvasData.eventId, updatedNodes);
+    await api.canvas.updateByEvent(canvasData.eventId, updatedNodes, canvasData.roles);
   };
 
   const handleAddChild = async (parentId: string) => {
@@ -433,7 +453,7 @@ export default function CanvasPage() {
 
     const updatedNodes = [...canvasData.nodes, newNode];
     setCanvasData({ ...canvasData, nodes: updatedNodes });
-    await api.canvas.updateByEvent(canvasData.eventId, updatedNodes);
+    await api.canvas.updateByEvent(canvasData.eventId, updatedNodes, canvasData.roles);
     setSelectedNodeId(newNode.id);
   };
 
@@ -456,7 +476,7 @@ export default function CanvasPage() {
 
     const updatedNodes = canvasData.nodes.filter(n => !toDelete.has(n.id));
     setCanvasData({ ...canvasData, nodes: updatedNodes });
-    await api.canvas.updateByEvent(canvasData.eventId, updatedNodes);
+    await api.canvas.updateByEvent(canvasData.eventId, updatedNodes, canvasData.roles);
     setSelectedNodeId(null);
   };
 
@@ -873,6 +893,7 @@ export default function CanvasPage() {
                         <input
                           type="text"
                           value={item.role || ''}
+                          list="available-roles"
                           onChange={(e) => {
                             const newChecklist = [...selectedNode.checklist];
                             newChecklist[idx].role = e.target.value;
@@ -881,6 +902,11 @@ export default function CanvasPage() {
                           className="w-20 bg-white/5 px-2 py-0.5 rounded text-[10px] text-indigo-400 placeholder:text-gray-700 outline-none border border-transparent focus:border-indigo-500/30 transition-all font-medium uppercase tracking-wider"
                           placeholder="Role"
                         />
+                        <datalist id="available-roles">
+                          {availableRoles.map(role => (
+                            <option key={role} value={role} />
+                          ))}
+                        </datalist>
                       </div>
                       <button
                         onClick={() => {
@@ -924,31 +950,71 @@ export default function CanvasPage() {
         onToggleMyView={() => setIsMyViewActive(!isMyViewActive)}
       />
 
-      {/* Roles Sidebar */}
-      <div className="fixed right-6 top-24 z-50 flex flex-col gap-2">
-        {availableRoles.length > 0 && (
-          <div className="bg-[#1a1a1a]/80 backdrop-blur-xl border border-white/10 rounded-2xl p-4 shadow-2xl min-w-[120px]">
-            <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 px-2">Filter by Role</h3>
-            <div className="flex flex-col gap-1">
-              <button
-                onClick={() => setSelectedRoleId(null)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all text-left ${!selectedRoleId ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : 'text-gray-400 hover:text-white hover:bg-white/5 border border-transparent'}`}
+      {/* NEW Left Roles Sidebar */}
+      <div className="fixed left-6 top-1/2 -translate-y-1/2 z-50 flex flex-col items-center gap-4 bg-gray-900/40 backdrop-blur-2xl border border-white/10 p-4 rounded-full shadow-2xl">
+        <div className="flex flex-col gap-3">
+          <button
+            onClick={() => setSelectedRoleId(null)}
+            className={`w-10 h-10 rounded-full flex items-center justify-center text-[10px] font-bold transition-all border ${!selectedRoleId ? 'bg-indigo-500 text-white border-indigo-400 shadow-lg shadow-indigo-500/40' : 'bg-white/5 text-gray-400 border-white/5 hover:border-white/20 hover:text-white'}`}
+            title="Show All"
+          >
+            ALL
+          </button>
+          {availableRoles.map(role => (
+            <button
+              key={role}
+              onClick={() => setSelectedRoleId(selectedRoleId === role ? null : role)}
+              className={`w-10 h-10 rounded-full flex items-center justify-center text-[10px] font-bold transition-all border relative group ${selectedRoleId === role ? 'bg-indigo-500 text-white border-indigo-400 shadow-lg shadow-indigo-500/40' : 'bg-white/5 text-gray-400 border-white/5 hover:border-white/20 hover:text-white'}`}
+            >
+              {role.charAt(0)}
+              <div className="absolute left-14 opacity-0 group-hover:opacity-100 pointer-events-none bg-gray-900 text-white text-[10px] px-2 py-1 rounded border border-white/10 whitespace-nowrap transition-all translate-x-[-10px] group-hover:translate-x-0 font-bold uppercase tracking-widest">
+                {role}
+              </div>
+            </button>
+          ))}
+        </div>
+
+        <div className="w-8 h-px bg-white/10 my-1" />
+
+        <div className="relative">
+          <button
+            onClick={() => setIsAddingRole(!isAddingRole)}
+            className="w-10 h-10 rounded-full bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center hover:bg-indigo-500 hover:text-white transition-all shadow-lg hover:shadow-indigo-500/40"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+            </svg>
+          </button>
+
+          <AnimatePresence>
+            {isAddingRole && (
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                className="absolute left-14 top-0 bg-[#1a1a1a] border border-white/10 p-3 rounded-2xl shadow-2xl flex items-center gap-2 min-w-[200px]"
               >
-                All Roles
-              </button>
-              {availableRoles.map(role => (
+                <input
+                  autoFocus
+                  type="text"
+                  value={newRoleName}
+                  onChange={(e) => setNewRoleName(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddRole()}
+                  placeholder="New role name..."
+                  className="bg-white/5 text-xs text-white px-3 py-2 rounded-xl border border-white/5 outline-none focus:border-indigo-500/50 flex-1"
+                />
                 <button
-                  key={role}
-                  onClick={() => setSelectedRoleId(selectedRoleId === role ? null : role)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all text-left flex justify-between items-center group ${selectedRoleId === role ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : 'text-gray-400 hover:text-white hover:bg-white/5 border border-transparent'}`}
+                  onClick={handleAddRole}
+                  className="p-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-500 transition-colors"
                 >
-                  <span className="truncate">{role}</span>
-                  <div className={`w-1.5 h-1.5 rounded-full transition-all ${selectedRoleId === role ? 'bg-indigo-500 animate-pulse' : 'bg-gray-600 group-hover:bg-gray-400'}`} />
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                  </svg>
                 </button>
-              ))}
-            </div>
-          </div>
-        )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
 
       {/* Context Menu */}
