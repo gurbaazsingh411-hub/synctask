@@ -6,6 +6,7 @@ const api = {
   steps: supabaseFunctions.steps,
   tasks: supabaseFunctions.tasks,
   stats: supabaseFunctions.stats,
+  canvas: supabaseFunctions.canvas,
 };
 
 export default api;

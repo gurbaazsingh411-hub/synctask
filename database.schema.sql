@@ -118,6 +118,16 @@ CREATE TABLE analytics_snapshots (
   recorded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Canvas table (for workspace nodes)
+CREATE TABLE canvas (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  event_id UUID REFERENCES events(id) ON DELETE CASCADE,
+  nodes JSONB DEFAULT '{"nodes": [], "roles": []}'::JSONB,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(event_id)
+);
+
 -- 1. Create security functions to break recursion and handle visibility
 -- This function checks membership without querying the 'events' table
 CREATE OR REPLACE FUNCTION public.is_event_member(event_uuid UUID)
@@ -152,6 +162,7 @@ ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE comments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE attachments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE analytics_snapshots ENABLE ROW LEVEL SECURITY;
+ALTER TABLE canvas ENABLE ROW LEVEL SECURITY;
 
 -- 2. Apply new, clean policies
 -- Drop existing policies first to ensure idempotency
@@ -163,6 +174,7 @@ DROP POLICY IF EXISTS "tasks_access_policy" ON tasks;
 DROP POLICY IF EXISTS "comments_access_policy" ON comments;
 DROP POLICY IF EXISTS "attachments_access_policy" ON attachments;
 DROP POLICY IF EXISTS "analytics_access_policy" ON analytics_snapshots;
+DROP POLICY IF EXISTS "canvas_access_policy" ON canvas;
 
 -- Events Table: Direct owner_id check is CRITICAL for INSERT visibility
 CREATE POLICY "events_access_policy" ON events
@@ -211,6 +223,10 @@ CREATE POLICY "attachments_access_policy" ON attachments
   USING (can_access_event(event_id));
 
 CREATE POLICY "analytics_access_policy" ON analytics_snapshots
+  FOR ALL TO authenticated
+  USING (can_access_event(event_id));
+
+CREATE POLICY "canvas_access_policy" ON canvas
   FOR ALL TO authenticated
   USING (can_access_event(event_id));
 

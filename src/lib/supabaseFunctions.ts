@@ -153,5 +153,40 @@ export const supabaseFunctions = {
         contributions: completedCount || 0
       };
     }
+  },
+
+  // Canvas
+  canvas: {
+    async getByEvent(eventId: string) {
+      const { data, error } = await supabase
+        .from('canvas')
+        .select('*')
+        .eq('event_id', eventId)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    async create(eventId: string, nodes: any[]) {
+      const { data, error } = await supabase
+        .from('canvas')
+        .insert([{ event_id: eventId, nodes: { nodes, roles: [] } }])
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    async updateByEvent(eventId: string, nodes: any[], roles: string[]) {
+      const { data, error } = await supabase
+        .from('canvas')
+        .update({ 
+          nodes: { nodes, roles }, 
+          updated_at: new Date().toISOString() 
+        })
+        .eq('event_id', eventId)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    }
   }
 };
