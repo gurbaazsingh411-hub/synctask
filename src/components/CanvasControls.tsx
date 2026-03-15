@@ -8,9 +8,10 @@ interface CanvasControlsProps {
     onCenter: () => void;
     isMyViewActive: boolean;
     onToggleMyView: () => void;
+    onAddNode: () => void;
 }
 
-export const CanvasControls: React.FC<CanvasControlsProps> = ({ scale, onZoomIn, onZoomOut, onCenter, isMyViewActive, onToggleMyView }) => {
+export const CanvasControls: React.FC<CanvasControlsProps> = ({ scale, onZoomIn, onZoomOut, onCenter, isMyViewActive, onToggleMyView, onAddNode }) => {
     return (
         <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -51,6 +52,15 @@ export const CanvasControls: React.FC<CanvasControlsProps> = ({ scale, onZoomIn,
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
                 Focus on Me
+            </button>
+            <button
+                onClick={onAddNode}
+                className="flex items-center gap-2 px-3 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-white transition-all text-xs font-bold shadow-lg shadow-indigo-500/20 active:scale-95"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+                </svg>
+                New Node
             </button>
             <button
                 onClick={onCenter}

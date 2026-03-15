@@ -41,7 +41,8 @@ CREATE TABLE event_members (
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   role VARCHAR(50) DEFAULT 'member', -- 'owner', 'admin', 'member'
   joined_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  UNIQUE(event_id, user_id)
+  UNIQUE(event_id, user_id),
+  CONSTRAINT fk_profiles FOREIGN KEY (user_id) REFERENCES profiles(id)
 );
 
 -- To-do lists table

@@ -129,8 +129,12 @@ export default function CanvasPage() {
         if (event) setEventName(event.name);
 
         // Try to get existing canvas data from Supabase
-        const members = await api.events.getMembers(id as string);
-        if (members) setEventMembers(members);
+        try {
+          const members = await api.events.getMembers(id as string);
+          if (members) setEventMembers(members);
+        } catch (memberError) {
+          console.error('Error fetching members:', memberError);
+        }
 
         let existingCanvas = await api.canvas.getByEvent(id as string);
 
@@ -303,19 +307,28 @@ export default function CanvasPage() {
     });
   };
 
-  const handleAddIndependentNode = async () => {
+  const handleAddIndependentNode = async (x?: number, y?: number) => {
     if (!canvasData) return;
 
     const rect = canvasRef.current?.getBoundingClientRect();
-    const mouseX = contextMenu.x - (rect?.left || 0);
-    const mouseY = contextMenu.y - (rect?.top || 0);
+    let posX = x;
+    let posY = y;
+
+    if (posX === undefined || posY === undefined) {
+      // If no coordinates provided, use center of viewport
+      posX = (rect?.width || 800) / 2;
+      posY = (rect?.height || 600) / 2;
+    } else {
+      posX = posX - (rect?.left || 0);
+      posY = posY - (rect?.top || 0);
+    }
 
     const newNode: CanvasNode = {
       id: `node_ind_${Date.now()}`,
       title: 'New Note',
       description: '',
-      x: (mouseX - offset.x) / scale,
-      y: (mouseY - offset.y) / scale,
+      x: (posX - offset.x) / scale,
+      y: (posY - offset.y) / scale,
       parentId: null,
       expanded: true,
       status: 'not_started',
@@ -948,6 +961,7 @@ export default function CanvasPage() {
         onCenter={handleCenter}
         isMyViewActive={isMyViewActive}
         onToggleMyView={() => setIsMyViewActive(!isMyViewActive)}
+        onAddNode={() => handleAddIndependentNode()}
       />
 
       {/* NEW Left Roles Sidebar */}
@@ -1028,7 +1042,7 @@ export default function CanvasPage() {
             style={{ left: contextMenu.x, top: contextMenu.y }}
           >
             <button
-              onClick={handleAddIndependentNode}
+              onClick={() => handleAddIndependentNode(contextMenu.x, contextMenu.y)}
               className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 hover:text-white transition-colors"
             >
               <div className="w-5 h-5 flex items-center justify-center bg-indigo-500/10 text-indigo-400 rounded-md">
