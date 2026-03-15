@@ -112,11 +112,14 @@ export default function EventDetailsPage() {
                   </svg>
                   Invite
                 </button>
-                <button className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center text-sm font-medium">
+                <button 
+                  onClick={() => router.push(`/events/${id}/canvas`)}
+                  className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2.5 rounded-xl transition-all flex items-center text-sm font-semibold shadow-lg shadow-indigo-500/25 active:scale-95"
+                >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
                   </svg>
-                  New List
+                  Open Visual Canvas
                 </button>
               </div>
             </div>
@@ -174,15 +177,18 @@ export default function EventDetailsPage() {
             {/* Create First List Card */}
             {todoLists.length === 0 && (
               <div className="col-span-full py-20 bg-gray-800/20 border-2 border-dashed border-gray-800 rounded-3xl text-center">
-                <div className="mx-auto w-16 h-16 bg-gray-800/50 rounded-2xl flex items-center justify-center mb-6 text-gray-500">
+                <div className="mx-auto w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center mb-6 text-indigo-400 border border-white/5 shadow-inner">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
                   </svg>
                 </div>
-                <h3 className="text-xl font-bold mb-2">Build your first to-do list</h3>
-                <p className="text-gray-500 mb-8 max-w-xs mx-auto">To-do lists are the foundation of your event project organization.</p>
-                <button className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 px-8 rounded-xl transition-all shadow-lg shadow-indigo-500/20">
-                  Create To-Do List
+                <h3 className="text-xl font-bold mb-2">Initialize your workspace</h3>
+                <p className="text-gray-500 mb-8 max-w-xs mx-auto">The Visual Canvas is the primary place where you orchestrate tasks and collaborate in real-time.</p>
+                <button 
+                  onClick={() => router.push(`/events/${id}/canvas`)}
+                  className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3.5 px-10 rounded-2xl transition-all shadow-xl shadow-indigo-500/20 active:scale-95"
+                >
+                  Open Visual Canvas
                 </button>
               </div>
             )}
