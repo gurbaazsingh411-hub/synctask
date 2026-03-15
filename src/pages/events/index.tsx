@@ -28,19 +28,13 @@ export default function EventsPage() {
         setEvents(eventsData.map(event => ({
           id: event.id,
           name: event.name,
-          membersCount: 0, // This would need a separate query to count members
-          activeTasks: 0, // This would need a separate query to count active tasks
-          lastActivity: event.updated_at,
-          gradientColor: 'from-blue-500 to-purple-600' // Could be randomly assigned or user-selected
+          membersCount: event.event_members?.[0]?.count || 0,
+          activeTasks: 0, // Still need a specific query for tasks if desired
+          lastActivity: new Date(event.updated_at).toLocaleDateString(),
+          gradientColor: 'from-indigo-500 to-purple-600'
         })));
       } catch (error: any) {
         console.error('Error fetching events:', error);
-        // Provide fallback for the RLS policy issue
-        // In a real implementation, you would need to fix the RLS policies in Supabase
-        // For now, showing a message to the user
-        console.warn('There was an issue connecting to the database. Please check your Supabase RLS policies for event_members table.');
-        
-        // Set empty events to prevent UI issues
         setEvents([]);
       }
     };

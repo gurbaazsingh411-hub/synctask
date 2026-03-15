@@ -1,8 +1,28 @@
 -- Supabase Database Schema for SyncTask
 
--- Users table (handled by Supabase Auth)
--- The users table is managed by Supabase Auth
--- Additional profile information can be stored in a separate profiles table if needed
+-- Users table (profiles)
+-- This table stores additional user information and is synced with Supabase Auth
+CREATE TABLE profiles (
+  id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
+  email TEXT NOT NULL,
+  full_name TEXT,
+  avatar_url TEXT,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Trigger to create a profile on signup
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.profiles (id, email, full_name, avatar_url)
+  VALUES (new.id, new.email, new.raw_user_meta_data->>'full_name', new.raw_user_meta_data->>'avatar_url');
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
 -- Events table
 CREATE TABLE events (
@@ -123,6 +143,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Enable Row Level Security (RLS)
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE event_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE todo_lists ENABLE ROW LEVEL SECURITY;
@@ -192,3 +213,21 @@ CREATE POLICY "attachments_access_policy" ON attachments
 CREATE POLICY "analytics_access_policy" ON analytics_snapshots
   FOR ALL TO authenticated
   USING (can_access_event(event_id));
+
+-- Profiles visibility: Users can see profiles of people they share an event with
+CREATE POLICY "profiles_visibility_policy" ON profiles
+  FOR SELECT TO authenticated
+  USING (
+    id = auth.uid() 
+    OR 
+    EXISTS (
+      SELECT 1 FROM event_members em1
+      JOIN event_members em2 ON em1.event_id = em2.event_id
+      WHERE em1.user_id = auth.uid() AND em2.user_id = profiles.id
+    )
+  );
+
+-- Profiles update: Users can only update their own profile
+CREATE POLICY "profiles_update_policy" ON profiles
+  FOR UPDATE TO authenticated
+  USING (id = auth.uid());

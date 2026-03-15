@@ -1,10 +1,27 @@
 import { useRouter } from 'next/router';
 import { useSupabase } from '@/contexts/SupabaseContext';
 import { motion } from 'framer-motion';
+import { useState, useEffect } from 'react';
+import api from '@/lib/api';
 
 export default function DashboardPage() {
   const router = useRouter();
   const { user, signOut } = useSupabase();
+  const [stats, setStats] = useState({ events: 0, tasks: 0, contributions: 0 });
+
+  useEffect(() => {
+    if (user) {
+      const fetchStats = async () => {
+        try {
+          const userStats = await api.stats.getUserStats();
+          setStats(userStats);
+        } catch (error) {
+          console.error('Error fetching stats:', error);
+        }
+      };
+      fetchStats();
+    }
+  }, [user]);
 
   if (!user) {
     router.push('/auth/login');
@@ -73,7 +90,7 @@ export default function DashboardPage() {
                 className="bg-gray-800/50 p-6 rounded-xl border border-gray-700"
               >
                 <h3 className="text-lg font-semibold text-gray-400 mb-2">Events</h3>
-                <p className="text-3xl font-bold text-white mb-2">0</p>
+                <p className="text-3xl font-bold text-white mb-2">{stats.events}</p>
                 <p className="text-sm text-gray-500">Active events you're part of</p>
               </motion.div>
               <motion.div
@@ -83,7 +100,7 @@ export default function DashboardPage() {
                 className="bg-gray-800/50 p-6 rounded-xl border border-gray-700"
               >
                 <h3 className="text-lg font-semibold text-gray-400 mb-2">Tasks</h3>
-                <p className="text-3xl font-bold text-white mb-2">0</p>
+                <p className="text-3xl font-bold text-white mb-2">{stats.tasks}</p>
                 <p className="text-sm text-gray-500">Tasks assigned to you</p>
               </motion.div>
               <motion.div
@@ -93,7 +110,7 @@ export default function DashboardPage() {
                 className="bg-gray-800/50 p-6 rounded-xl border border-gray-700"
               >
                 <h3 className="text-lg font-semibold text-gray-400 mb-2">Contributions</h3>
-                <p className="text-3xl font-bold text-white mb-2">0</p>
+                <p className="text-3xl font-bold text-white mb-2">{stats.contributions}</p>
                 <p className="text-sm text-gray-500">Tasks completed this week</p>
               </motion.div>
             </div>
