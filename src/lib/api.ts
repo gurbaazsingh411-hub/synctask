@@ -1,7 +1,12 @@
 import { supabaseFunctions } from './supabaseFunctions';
 
 const api = {
-  events: supabaseFunctions.events,
+  events: {
+    getAll: supabaseFunctions.events.getAll,
+    getById: supabaseFunctions.events.getById,
+    getMembers: supabaseFunctions.events.getMembers,
+    create: supabaseFunctions.events.create,
+  },
   lists: supabaseFunctions.lists,
   steps: supabaseFunctions.steps,
   tasks: supabaseFunctions.tasks,

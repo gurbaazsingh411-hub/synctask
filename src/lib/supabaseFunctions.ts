@@ -6,7 +6,10 @@ export const supabaseFunctions = {
     async getAll() {
       const { data, error } = await supabase
         .from('events')
-        .select('*')
+        .select(`
+          *,
+          event_members(count)
+        `)
         .order('created_at', { ascending: false });
       if (error) throw error;
       return data;
@@ -21,6 +24,18 @@ export const supabaseFunctions = {
         `)
         .eq('id', id)
         .single();
+      if (error) throw error;
+      return data;
+    },
+    async getMembers(eventId: string) {
+      const { data, error } = await supabase
+        .from('event_members')
+        .select(`
+          user_id,
+          role,
+          profiles(email, full_name, avatar_url)
+        `)
+        .eq('event_id', eventId);
       if (error) throw error;
       return data;
     },
